@@ -23,9 +23,9 @@ satisfy the requirement.
 
 #### Code
 1. Pure scala.
-2. Map partition on Array A, broadcast Array B as dictionary.
-3. Map partition on Array B, broadcast Array A as dictionary.
-4. Map partition on Array A and Array B and then do a join.
+2. Map partition on list of extracted "Topic"s of Array A, broadcast extracted "Topic"s of Array B as dictionary.
+3. Map partition on list of extracted "Topic"s of Array B, broadcast extracted "Topic"s of Array A as dictionary.
+4. Join extracted "Topic"s of Array A and extracted "Topic"s of Array B.
 
 ### Commands
 1. Question 3 a: ${SPARK_HOME}/spark-submit --class bar.ds.cs.three_a --master "local[2]" /home/vladislav/Projects/barcs/target/scala-2.11/barcs-assembly-0.1.jar --arr_a_path /home/vladislav/Documents/arr_a --arr_b_path /home/vladislav/Documents/arr_b --arr_c_path /home/vladislav/Documents/arr_c_local
