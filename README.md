@@ -30,13 +30,15 @@ satisfy the requirement.
 4. Question 3 d: ${SPARK_HOME}/spark-submit --class bar.ds.cs.three_d --master "local[2]" /home/vladislav/Projects/barcs/target/scala-2.11/barcs-assembly-0.1.jar --arr_a_path /home/vladislav/Documents/arr_a --arr_b_path /home/vladislav/Documents/arr_b --arr_c_path /home/vladislav/Documents/arr_c --fs local
 
 #### Example output
-0	1,2,3	true
-1	2,3	true
-2	1,44,3	true
-3	100,6,33	false
-4	7	true
-5	98,99,100,101	true
-6	98,99,100	false
-7	98,99,100,101,102	true
-8	6,7	true
+|Index A|Element A|Bool|
+|---|---|---|
+| 0  | 1,2,3  | true  |
+| 1 | 2,3  | true  |
+| 2 | 1,44  | true  |
+| 3 | 100,6,33  | false   |
+| 4 | 7  | true  |
+| 5 | 98,99,100,101  | true  |
+| 6 | 98,99,100  |false   |
+| 7 | 98,99,100,101,102  | true  |
+| 8 | 6,7  | true  |
 
