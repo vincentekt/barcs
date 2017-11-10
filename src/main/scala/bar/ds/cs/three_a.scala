@@ -96,12 +96,11 @@ object three_a {
       .mapValues(_.toList.length).map(x =>
       // 3. If count of interaction is equivalent to length of that B element, then that element of A is true.
       if (len_b.get(x._1._2).get <= (x._2 + 1)){
-        x._1._1 -> 1
+        x._1 -> 1
       }
       else {
-        x._1._1 -> 0
-      })
-//    pre_output.foreach(println)
+        x._1 -> 0
+      }).groupBy(_._1._1).mapValues(_.foldLeft[Long](0)((s, l) => math.min(s + l._2, 1)))
 
     // Writing output
     val file = new File(path_c)
