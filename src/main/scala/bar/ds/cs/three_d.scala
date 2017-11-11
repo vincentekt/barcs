@@ -61,8 +61,6 @@ object three_d {
     // 3. Get count of interaction between idx_A and idx_B
     val ab_pair_cocounts = cocounts(ab_pair)
 
-    println("ab_pair_cocounts")
-    ab_pair_cocounts.foreach(println)
 
     // 4. If count of interaction is equivalent to length of that B element, then that element of A is true.
     val ab_matches = get_a_b_matches(ab_pair_cocounts, len_b_bc)
