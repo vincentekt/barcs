@@ -2,7 +2,7 @@ package bar.ds.cs
 
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.SQLContext
-import bar.ds.cs.common.{args_parse, path_prefix, write_spark}
+import bar.ds.cs.common._
 
 object three_d {
 
@@ -21,63 +21,62 @@ object three_d {
     val sqlContext = new SQLContext(sc)
 
     // Process arguments
-    val (path_a, path_b, path_c) = args_parse(args, usage, Array[String]("path_a", "path_b", "path_c"))
+    val (path_a, path_b, path_c) = args_parse(args, usage, Array[String]("path_a", "path_c"))
 
+    //------------------------------------------------------------------------------------------------
+    // i) Preprocess array A
+    //------------------------------------------------------------------------------------------------
     // Read Array A
-    val array_a = sc.textFile(path_a)
-
-    val tmp_a = array_a.zipWithIndex().map(_.swap)
-    tmp_a.cache()
+    val ary_A = add_idx(sc.textFile(path_a)).cache()
 
     // Extract ("Topic", index) for Array A, e.g.: ((2,3), 0)
-    val map_a = tmp_a.flatMap{ x =>
-      val ele_list = x._2.split(",")
-      val zip_list = ele_list.take(ele_list.length - 1) zip ele_list.takeRight(ele_list.length - 1)
-      (zip_list ++ (ele_list zip List.fill(ele_list.length)("NA"))).map(k => (k._1 -> k._2) -> x._1.toString)
-    }.reduceByKey(_+","+_).mapValues(_.split(","))
+    val a_memberships = get_global_topic_membership(get_local_topic_membership(ary_A, "A"))
 
-
+    //------------------------------------------------------------------------------------------------
+    // ii) Preprocess array B
+    //------------------------------------------------------------------------------------------------
     // Read Array B
-    val array_b = sc.textFile(path_b)
+    val ary_B = add_idx(sc.textFile(path_b)).cache()
 
-    val tmp_b = array_b.zipWithIndex().map(_.swap).mapValues(_.split(","))
-    tmp_b.cache()
-
-    // Extract lengths of Array B elements
-    val len_b = tmp_b.map(x => x._1.toString -> x._2.length).collectAsMap()
-    val len_b_bc = sc.broadcast(len_b)
+    // Extract lengths of Array B elements and broadcast them
+    val len_b = ary_B.map{case (idx, line) => idx -> line.split(",").length}.collectAsMap()
+    val len_b_bc = sc.broadcast(len_b.toArray)
 
     // Extract ("Topic", index) for Array B, e.g.: ((2,3), 0)
-    val map_b = tmp_b.flatMap{ x =>
-      var zip_list = x._2.take(x._2.length - 1) zip x._2.takeRight(x._2.length - 1)
-      if (x._2.length == 1){
-        zip_list = x._2 zip Array("NA")
-      }
-      zip_list.map(k => (k._1 -> k._2) -> x._1.toString)
-    }.reduceByKey(_+","+_).mapValues(_.split(","))
+    val b_memberships = get_global_topic_membership(get_local_topic_membership(ary_B, "B"))
 
+    //------------------------------------------------------------------------------------------------
+    // iii) Main logic
+    //------------------------------------------------------------------------------------------------
     // 1. Combine A and B through Topic, e.g.: ((2,3), idx_A, inx_B)
+    val ab_memberships_ary = a_memberships.join(b_memberships)
+    println("ab_memberships_ary")
+    ab_memberships_ary.map{x => (x._1, x._2._1.mkString("_"), x._2._2.mkString("_"))}.foreach(println)
+
     // 2. Explodes (Flatten) them prior to counting. e.g.: ((2,3), (idx_A_1, idx_A_2), (idx_B_1, idx_B_2)) -->
     // (idx_A_1, idx_B_1), (idx_A_1, idx_B_2), (idx_A_2, idx_B_2), (idx_A_2, idx_B_1)
-    val pre_output = map_a.join(map_b).map(x => x._2._1 -> x._2._2).flatMapValues(x=>x).map(_.swap).flatMapValues(x=>x)
-      // 3. Get count of interaction between idx_A and idx_B
-      .map(x => (x._2, x._1) -> 1).reduceByKey(_+_).mapPartitions { x =>
-      val len_b_val = len_b_bc.value
-      // 4. If count of interaction is equivalent to length of that B element, then that element of A is true.
-      x.map{x =>
-        if(len_b_val.get(x._1._2).get <= (x._2 + 1)){
-          x._1._1 -> 1
-        } else {
-          x._1._1 -> 0
-        }
-      }
-      // 5. For every element of A, find if such element exists in B
-    }.reduceByKey(_+_).mapValues(math.min(_, 1))
+
+    val ab_pair = explode_members(ab_memberships_ary)
+
+    // 3. Get count of interaction between idx_A and idx_B
+    val ab_pair_cocounts = cocounts(ab_pair)
+
+    println("ab_pair_cocounts")
+    ab_pair_cocounts.foreach(println)
+
+    // 4. If count of interaction is equivalent to length of that B element, then that element of A is true.
+    val ab_matches = get_a_b_matches(ab_pair_cocounts, len_b_bc)
+
+    // 5. For every element of A, find if such element exists in B
+    val a_bool = sum_over_b(ab_matches)
+
+    //------------------------------------------------------------------------------------------------
+    // iv) Outputing
+    //------------------------------------------------------------------------------------------------
+    // Format output
+    val array_c = format_output(ary_A.leftOuterJoin(a_bool))
 
     // Writing output
-    val array_c = tmp_a.map(x => x._1.toString -> x._2).leftOuterJoin(pre_output)
-      .map(x => (x._1, x._2._1, x._2._2.getOrElse(0) == 1) )
-
     write_spark(path_c, sqlContext, array_c)
   }
 }

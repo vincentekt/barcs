@@ -24,6 +24,9 @@ object three_c {
     // Process arguments
     val (path_a, path_b, path_c) = args_parse(args, usage, Array[String]("path_b"))
 
+    //------------------------------------------------------------------------------------------------
+    // i) Preprocess array A
+    //------------------------------------------------------------------------------------------------
     // Read Array A
     val ary_A = add_idx(read_scala(path_a))
 
@@ -33,6 +36,9 @@ object three_c {
     // Broadcast a membership dictionary
     val a_memberships_bc = sc.broadcast(a_memberships.toArray)
 
+    //------------------------------------------------------------------------------------------------
+    // ii) Preprocess array B
+    //------------------------------------------------------------------------------------------------
     // Read Array B
     val ary_B = add_idx(sc.textFile(path_b))
 
@@ -40,11 +46,14 @@ object three_c {
     val len_b = ary_B.map{case (idx, line) => idx -> line.split(",").length}.collectAsMap()
     val len_b_bc = sc.broadcast(len_b.toArray)
 
+    // Extract ("Topic", index) for Array B, e.g.: ((2,3), 0)
     val b_memberships = get_global_topic_membership(get_local_topic_membership(ary_B, "B"))
 
     // Extract lengths of Array B elements
 
-    // This is where the main logic occur
+    //------------------------------------------------------------------------------------------------
+    // iii) Main logic
+    //------------------------------------------------------------------------------------------------
     // 1. Combine A and B through Topic, e.g.: ((2,3), Array(idx_A), Array(inx_B))
     val ab_memberships_ary = combine_A_n_B_by_Topic(b_memberships, a_memberships_bc)
 
@@ -62,10 +71,11 @@ object three_c {
     // 5. For every element of A, find if such element exists in B
     val a_bool = sum_over_b(ab_matches).collectAsMap()
 
-
+    //------------------------------------------------------------------------------------------------
+    // iv) Outputing
+    //------------------------------------------------------------------------------------------------
     // Format output
     val array_c = format_output(ary_A.map{case (idx, line) => (idx, (line, a_bool.get(idx)))})
-
 
     // Writing output
     write_scala(path_c, array_c)
