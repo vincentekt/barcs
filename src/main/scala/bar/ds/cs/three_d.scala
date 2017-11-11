@@ -2,9 +2,10 @@ package bar.ds.cs
 
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.SQLContext
+import bar.ds.cs.common.{args_parse, path_prefix, write_spark}
 
 object three_d {
-  type OptionMap = Map[Symbol, Any]
+
   val usage = """
     Usage: run_three [--arr_a_path string] [--arr_b_path string] [--arr_c_path string] [--fs string] \n
     --arr_a_path: full path to array a, csv, no-compression \n
@@ -13,42 +14,6 @@ object three_d {
     --fs: hadoop or local \n
   """
 
-//  val log = org.apache.log4j.LogManager.getLogger(this.getClass.getName.stripSuffix("$"))
-
-  def args_parse(args: Array[String]): OptionMap = {
-    if (args.length == 0) println(usage)
-    val arglist = args.toList
-
-    def nextOption(map : OptionMap, list: List[String]) : OptionMap = {
-      def isSwitch(s : String) = (s(0) == '-')
-      list match {
-        case Nil => map
-
-        case "--arr_a_path" :: value :: tail =>
-          println("--arr_a_path " + value + " " + tail)
-          nextOption(map ++ Map('path_a -> value.toString), tail)
-
-        case "--arr_b_path" :: value :: tail =>
-          println("--arr_b_path " + value + " " + tail)
-          nextOption(map ++ Map('path_b -> value.toString), tail)
-
-        case "--arr_c_path" :: value :: tail =>
-          println("--arr_c_path " + value + " " + tail)
-          nextOption(map ++ Map('path_c -> value.toString), tail)
-
-        case "--fs" :: value :: tail =>
-          println("--fs " + value + " " + tail)
-          nextOption(map ++ Map('fs -> value.toString), tail)
-
-        case option :: tail => println("Unknown option "+option)
-          sys.exit(1)
-      }
-    }
-    val options = nextOption(Map(), arglist)
-    println(options)
-    return options
-  }
-
   def main(args: Array[String]): Unit = {
 
     // Get SparkContext
@@ -56,13 +21,7 @@ object three_d {
     val sqlContext = new SQLContext(sc)
 
     // Process arguments
-    val cl_args = args_parse(args)
-    val fs = cl_args.get('fs).get.toString
-    val path_prefix = Map("local" -> "file://", "local" -> "")
-
-    val path_a = path_prefix.get(fs).get + cl_args.get('path_a).get.toString
-    val path_b = path_prefix.get(fs).get + cl_args.get('path_b).get.toString
-    val path_c = path_prefix.get(fs).get + cl_args.get('path_c).get.toString
+    val (path_a, path_b, path_c) = args_parse(args, usage, Array[String]("path_a", "path_b", "path_c"))
 
     // Read Array A
     val array_a = sc.textFile(path_a)
@@ -116,8 +75,9 @@ object three_d {
     }.reduceByKey(_+_).mapValues(math.min(_, 1))
 
     // Writing output
-    sqlContext.createDataFrame(tmp_a.map(x => x._1.toString -> x._2).leftOuterJoin(pre_output)
-      .map(x => (x._1, x._2._1, x._2._2.getOrElse(0) == 1) )).write.mode("Overwrite").format("com.databricks.spark.csv").
-      options(Map("delimiter" -> "\t")).save(path_c)
+    val array_c = tmp_a.map(x => x._1.toString -> x._2).leftOuterJoin(pre_output)
+      .map(x => (x._1, x._2._1, x._2._2.getOrElse(0) == 1) )
+
+    write_spark(path_c, sqlContext, array_c)
   }
 }
