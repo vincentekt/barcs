@@ -50,8 +50,6 @@ object three_d {
     //------------------------------------------------------------------------------------------------
     // 1. Combine A and B through Topic, e.g.: ((2,3), idx_A, inx_B)
     val ab_memberships_ary = a_memberships.join(b_memberships)
-    println("ab_memberships_ary")
-    ab_memberships_ary.map{x => (x._1, x._2._1.mkString("_"), x._2._2.mkString("_"))}.foreach(println)
 
     // 2. Explodes (Flatten) them prior to counting. e.g.: ((2,3), (idx_A_1, idx_A_2), (idx_B_1, idx_B_2)) -->
     // (idx_A_1, idx_B_1), (idx_A_1, idx_B_2), (idx_A_2, idx_B_2), (idx_A_2, idx_B_1)
